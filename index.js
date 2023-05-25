@@ -5,10 +5,10 @@ app.use(express.json());
 const mongoose = require("mongoose");
 mongoose.connect("mongodb://localhost/vinted-v2");
 
-const signupRoutes = require("./routes/signup");
-app.use(signupRoutes);
-const loginRoutes = require("./routes/login");
-app.use(loginRoutes);
+const userRoutes = require("./routes/user");
+app.use(userRoutes);
+const offerRoutes = require("./routes/offer");
+app.use(offerRoutes);
 
 app.all("*", (req, res) => {
   res.status(400).json({ message: "page not found" });
