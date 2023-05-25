@@ -1,9 +1,19 @@
 const express = require("express");
 const app = express();
 app.use(express.json());
+require("dotenv").config();
 
 const mongoose = require("mongoose");
-mongoose.connect("mongodb://localhost/vinted-v2");
+mongoose.connect(process.env.MONGODB_URI);
+
+const cloudinary = require("cloudinary").v2;
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+  secure: true,
+});
 
 const userRoutes = require("./routes/user");
 app.use(userRoutes);
@@ -14,6 +24,6 @@ app.all("*", (req, res) => {
   res.status(400).json({ message: "page not found" });
 });
 
-app.listen(3000, () => {
+app.listen(process.env.PORT, () => {
   console.log("Server Started 🚀");
 });
