@@ -3,11 +3,18 @@ const router = express.Router();
 const uid2 = require("uid2");
 const SHA256 = require("crypto-js/sha256");
 const encBase64 = require("crypto-js/enc-Base64");
+const cloudinary = require("cloudinary").v2;
+const fileUpload = require("express-fileupload");
 
 const User = require("../models/User");
+const convertToBase64 = require("../utils/convertToBase64");
 
-router.post("/user/signup", async (req, res) => {
+router.post("/user/signup", fileUpload(), async (req, res) => {
   try {
+    const picture = req.files.picture;
+    // console.log(picture);
+    const avatar = await cloudinary.uploader.upload(convertToBase64(picture));
+    // console.log(avatar);
     const { username, email, password, newsletter } = req.body;
     // console.log(username, email, password, newsletter);
     const salt = uid2(16);
@@ -19,7 +26,7 @@ router.post("/user/signup", async (req, res) => {
       if (username) {
         const newUser = new User({
           email,
-          account: { username },
+          account: { username, avatar: avatar },
           password,
           newsletter,
           token,

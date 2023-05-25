@@ -3,12 +3,10 @@ const router = express.Router();
 const fileUpload = require("express-fileupload");
 const cloudinary = require("cloudinary").v2;
 
+const convertToBase64 = require("../utils/convertToBase64");
 const isAuthenticated = require("../middlewares/isAuthenticated");
-const User = require("../models/User");
 const Offer = require("../models/Offer");
-const convertToBase64 = (file) => {
-  return `data:${file.mimetype};base64,${file.data.toString("base64")}`;
-};
+
 // console.log(convertToBase64(req.files.picture));
 
 router.post(
@@ -17,19 +15,17 @@ router.post(
   fileUpload(),
   async (req, res) => {
     try {
-      console.log(req.user);
+      // console.log(req.user);
       const { title, description, price, condition, city, brand, size, color } =
         req.body;
       // console.log(title, description, price, condition, city, brand, size, color);
-      const { picture } = req.files;
+      const picture = req.files.picture;
       // console.log(picture);
       if (!title || !description || !picture) {
         return res.status(400).json({ message: "Missing parameters" });
       }
 
-      const result = await cloudinary.uploader.upload(
-        convertToBase64(req.files.picture)
-      );
+      const result = await cloudinary.uploader.upload(convertToBase64(picture));
       // console.log(result);
 
       const newOffer = new Offer({
@@ -50,7 +46,8 @@ router.post(
       });
       // console.log(newOffer);
       await newOffer.save();
-      res.status(201).json({ message: "OK" });
+
+      res.status(201).json(newOffer);
     } catch (error) {
       res.status(500).json({ message: error.message });
     }
