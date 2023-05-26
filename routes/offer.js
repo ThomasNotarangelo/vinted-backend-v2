@@ -25,7 +25,12 @@ router.post(
         return res.status(400).json({ message: "Missing parameters" });
       }
 
-      const result = await cloudinary.uploader.upload(convertToBase64(picture));
+      const result = await cloudinary.uploader.upload(
+        convertToBase64(picture),
+        {
+          folder: "/vinted-v2/offers",
+        }
+      );
       // console.log(result);
 
       const newOffer = new Offer({
@@ -53,5 +58,19 @@ router.post(
     }
   }
 );
+
+router.put("/offer/update", isAuthenticated, fileUpload(), async (req, res) => {
+  try {
+    // console.log("route: /offer/update"); // OK
+    // console.log(req.query.id); // OK
+    const offerToUpdate = await Offer.findOne({
+      _id: req.query.id,
+    });
+
+    // console.log(offerToUpdate); // OK
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
 module.exports = router;

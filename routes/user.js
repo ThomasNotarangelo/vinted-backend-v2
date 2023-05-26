@@ -11,9 +11,15 @@ const convertToBase64 = require("../utils/convertToBase64");
 
 router.post("/user/signup", fileUpload(), async (req, res) => {
   try {
-    const picture = req.files.picture;
-    // console.log(picture);
-    const avatar = await cloudinary.uploader.upload(convertToBase64(picture));
+    let avatar = null;
+
+    if (req.files && req.files.picture) {
+      const picture = req.files.picture;
+      // console.log(picture);
+      avatar = await cloudinary.uploader.upload(convertToBase64(picture), {
+        folder: "/vinted-v2/users-avatars",
+      });
+    }
     // console.log(avatar);
     const { username, email, password, newsletter } = req.body;
     // console.log(username, email, password, newsletter);
