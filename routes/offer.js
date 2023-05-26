@@ -25,14 +25,6 @@ router.post(
         return res.status(400).json({ message: "Missing parameters" });
       }
 
-      const result = await cloudinary.uploader.upload(
-        convertToBase64(picture),
-        {
-          folder: "/vinted-v2/offers",
-        }
-      );
-      // console.log(result);
-
       const newOffer = new Offer({
         product_name: title,
         product_description: description,
@@ -46,9 +38,17 @@ router.post(
             EMPLACEMENT: city,
           },
         ],
-        product_image: result,
+        // product_image: result, Ne pas mettre cette clé
         owner: req.user,
       });
+      const result = await cloudinary.uploader.upload(
+        convertToBase64(picture),
+        {
+          folder: `/vinted-v2/offers/${newOffer._id}`,
+        }
+      );
+      // console.log(result);
+      newOffer.product_image = result;
       // console.log(newOffer);
       await newOffer.save();
 
@@ -62,11 +62,60 @@ router.post(
 router.put("/offer/update", isAuthenticated, fileUpload(), async (req, res) => {
   try {
     // console.log("route: /offer/update"); // OK
-    // console.log(req.query.id); // OK
-    const offerToUpdate = await Offer.findOne({
-      _id: req.query.id,
-    });
+    const {
+      id,
+      title,
+      description,
+      price,
+      condition,
+      city,
+      brand,
+      size,
+      color,
+    } = req.body;
+    // console.log(req.body); // OK
+    const picture = req.files.picture;
+    // console.log(picture); // OK
+    const offerToUpdate = await Offer.findById(id);
+    // console.log(offerToUpdate.product_name); // OK
+    // console.log(title); // OK
+    if (title) {
+      offerToUpdate.product_name = title;
+    }
+    if (description) {
+      offerToUpdate.product_description = description;
+    }
+    if (price) {
+      offerToUpdate.product_price = price;
+    }
+    // console.log(offerToUpdate.product_details[0].ETAT); // OK
+    if (condition) {
+      offerToUpdate.product_details[0].ETAT = condition;
+    }
+    if (city) {
+      offerToUpdate.product_details[0].EMPLACEMENT = city;
+    }
+    if (brand) {
+      offerToUpdate.product_details[0].MARQUE = brand;
+    }
+    if (size) {
+      offerToUpdate.product_details[0].TAILLE = size;
+    }
+    if (color) {
+      offerToUpdate.product_details[0].COULEUR = color;
+    }
 
+    if (picture) {
+      const result = await cloudinary.uploader.upload(
+        convertToBase64(picture),
+        {
+          folder: `/vinted-v2/offers/${offerToUpdate._id}`,
+        }
+      );
+      offerToUpdate.product_image = result;
+    }
+    await offerToUpdate.save();
+    res.status(200).json(offerToUpdate);
     // console.log(offerToUpdate); // OK
   } catch (error) {
     res.status(500).json({ message: error.message });
