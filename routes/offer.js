@@ -90,6 +90,9 @@ router.put("/offer/update", isAuthenticated, fileUpload(), async (req, res) => {
     const offerToUpdate = await Offer.findById(id);
     // console.log(offerToUpdate); // OK
     // console.log(title); // OK
+    if (!offerToUpdate) {
+      return res.status(400).json({ message: "Offer not found" });
+    }
     if (title) {
       offerToUpdate.product_name = title;
     }
@@ -150,6 +153,9 @@ router.delete(
       const id = req.params.id;
       // console.log(id); // OK
       const offer = await Offer.findById(id);
+      if (!offer) {
+        return res.status(400).json({ message: "Offer not found" });
+      }
       // console.log(offer); // OK
       // console.log(offer.product_image.public_id); // OK
       const publicId = offer.product_image.public_id;
