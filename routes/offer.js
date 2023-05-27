@@ -62,6 +62,7 @@ router.post(
 router.put("/offer/update", isAuthenticated, fileUpload(), async (req, res) => {
   try {
     // console.log("route: /offer/update"); // OK
+
     const {
       id,
       title,
@@ -73,11 +74,10 @@ router.put("/offer/update", isAuthenticated, fileUpload(), async (req, res) => {
       size,
       color,
     } = req.body;
-    // console.log(req.body); // OK
-    const picture = req.files.picture;
-    // console.log(picture); // OK
+    console.log(req.body); // OK
+
     const offerToUpdate = await Offer.findById(id);
-    // console.log(offerToUpdate.product_name); // OK
+    // console.log(offerToUpdate); // OK
     // console.log(title); // OK
     if (title) {
       offerToUpdate.product_name = title;
@@ -88,32 +88,39 @@ router.put("/offer/update", isAuthenticated, fileUpload(), async (req, res) => {
     if (price) {
       offerToUpdate.product_price = price;
     }
-    // console.log(offerToUpdate.product_details[0].ETAT); // OK
-    if (condition) {
-      offerToUpdate.product_details[0].ETAT = condition;
-    }
-    if (city) {
-      offerToUpdate.product_details[0].EMPLACEMENT = city;
-    }
     if (brand) {
       offerToUpdate.product_details[0].MARQUE = brand;
     }
     if (size) {
       offerToUpdate.product_details[0].TAILLE = size;
     }
+    // console.log(offerToUpdate.product_details[0].ETAT); // OK
+    // console.log(condition); //OK
+    if (condition) {
+      offerToUpdate.product_details[0].ETAT = condition;
+    }
+    // console.log(color); // OK
+    // console.log(offerToUpdate.product_details[0].COULEUR); // OK
     if (color) {
       offerToUpdate.product_details[0].COULEUR = color;
     }
-
-    if (picture) {
-      const result = await cloudinary.uploader.upload(
-        convertToBase64(picture),
-        {
-          folder: `/vinted-v2/offers/${offerToUpdate._id}`,
-        }
-      );
-      offerToUpdate.product_image = result;
+    if (city) {
+      offerToUpdate.product_details[0].EMPLACEMENT = city;
     }
+    if (req.files && req.files.picture) {
+      const picture = req.files.picture;
+      if (picture) {
+        const result = await cloudinary.uploader.upload(
+          convertToBase64(picture),
+          {
+            folder: `/vinted-v2/offers/${offerToUpdate._id}`,
+          }
+        );
+        offerToUpdate.product_image = result;
+      }
+    }
+
+    offerToUpdate.markModified("product_details");
     await offerToUpdate.save();
     res.status(200).json(offerToUpdate);
     // console.log(offerToUpdate); // OK
@@ -121,5 +128,33 @@ router.put("/offer/update", isAuthenticated, fileUpload(), async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
+router.delete(
+  "/offer/delete/:id",
+  isAuthenticated,
+  fileUpload(),
+  async (req, res) => {
+    try {
+      // console.log(req.params.id); // OK
+      const id = req.params.id;
+      // console.log(id); // OK
+      const offer = await Offer.findById(id);
+      // console.log(offer); // OK
+      // console.log(offer.product_image.public_id); // OK
+      const publicId = offer.product_image.public_id;
+      // console.log(publicId); // OK
+      const imageToDelete = await cloudinary.uploader.destroy(publicId);
+      console.log(imageToDelete);
+      const folderPath = `vinted-v2/offers/${id}`;
+      // console.log(folderPath);
+      const folderToDelete = await cloudinary.api.delete_folder(folderPath);
+      console.log(folderToDelete);
+      await Offer.findByIdAndDelete(id);
+      res.status(200).json({ message: "Offer deleted" });
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+);
 
 module.exports = router;
