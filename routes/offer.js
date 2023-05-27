@@ -21,6 +21,17 @@ router.post(
       // console.log(title, description, price, condition, city, brand, size, color);
       const picture = req.files.picture;
       // console.log(picture);
+      if (
+        (title && title.length > 50) ||
+        (description && description.length > 500)
+      ) {
+        return res
+          .status(400)
+          .json({ message: "Title or description too long" });
+      }
+      if (price > 10000) {
+        return res.status(400).json({ message: "Price is too high" });
+      }
       if (!title || !description || !picture) {
         return res.status(400).json({ message: "Missing parameters" });
       }
