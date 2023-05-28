@@ -41,25 +41,25 @@ router.post(
         product_description: description,
         product_price: price,
         product_details: [
-          {
-            MARQUE: brand,
-            TAILLE: size,
-            ETAT: condition,
-            COULEUR: color,
-            EMPLACEMENT: city,
-          },
+          { MARQUE: brand },
+          { TAILLE: size },
+          { ETAT: condition },
+          { COULEUR: color },
+          { EMPLACEMENT: city },
         ],
         // product_image: result, Ne pas mettre cette clé
         owner: req.user,
       });
-      const result = await cloudinary.uploader.upload(
-        convertToBase64(picture),
-        {
-          folder: `/vinted-v2/offers/${newOffer._id}`,
-        }
-      );
-      // console.log(result);
-      newOffer.product_image = result;
+      if (req.files) {
+        const result = await cloudinary.uploader.upload(
+          convertToBase64(picture),
+          {
+            folder: `/vinted-v2/offers/${newOffer._id}`,
+          }
+        );
+        newOffer.product_image = result;
+      }
+
       // console.log(newOffer);
       await newOffer.save();
 
@@ -106,20 +106,20 @@ router.put("/offer/update", isAuthenticated, fileUpload(), async (req, res) => {
       offerToUpdate.product_details[0].MARQUE = brand;
     }
     if (size) {
-      offerToUpdate.product_details[0].TAILLE = size;
+      offerToUpdate.product_details[1].TAILLE = size;
     }
     // console.log(offerToUpdate.product_details[0].ETAT); // OK
     // console.log(condition); //OK
     if (condition) {
-      offerToUpdate.product_details[0].ETAT = condition;
+      offerToUpdate.product_details[2].ETAT = condition;
     }
     // console.log(color); // OK
     // console.log(offerToUpdate.product_details[0].COULEUR); // OK
     if (color) {
-      offerToUpdate.product_details[0].COULEUR = color;
+      offerToUpdate.product_details[3].COULEUR = color;
     }
     if (city) {
-      offerToUpdate.product_details[0].EMPLACEMENT = city;
+      offerToUpdate.product_details[4].EMPLACEMENT = city;
     }
     if (req.files && req.files.picture) {
       const picture = req.files.picture;
@@ -173,5 +173,72 @@ router.delete(
     }
   }
 );
+
+router.get("/offers", async (req, res) => {
+  try {
+    const filters = {};
+    const sortElements = {};
+    const { title, priceMin, priceMax, sort } = req.query;
+    // console.log(title); // OK
+    if (title) {
+      filters.product_name = new RegExp(title, "i");
+    }
+    // console.log(filters.product_name); // OK
+    if (priceMin) {
+      filters.product_price = {
+        $gte: priceMin,
+      };
+    }
+    if (priceMax) {
+      if (filters.product_price) {
+        filters.product_price.$lte = priceMax;
+      } else {
+        filters.product_price = {
+          $lte: priceMax,
+        };
+      }
+    }
+    // console.log(filters.product_price); // OK
+
+    // console.log(sort); // OK
+    if (sort === "price-desc") {
+      sortElements.product_price = "desc";
+    } else if (sort === "price-asc") {
+      sortElements.product_price = "asc";
+    }
+
+    let limit = 5;
+    if (req.query.limit) {
+      limit = req.query.limit;
+    }
+    let page = 1;
+    if (req.query.page) {
+      page = req.query.page;
+    }
+    const skip = (page - 1) * limit;
+
+    const numberOfOffers = await Offer.countDocuments();
+    const result = await Offer.find(filters)
+      .sort(sortElements)
+      .skip(skip)
+      .limit(limit);
+    // .select("product_name product_price");
+    res.status(200).json({ count: numberOfOffers, offers: result });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.get("/offer/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+    // console.log(id); // OK
+    const offer = await Offer.findById(id).populate("owner", "account");
+    // console.log(offer); // OK
+    res.status(200).json(offer);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
 
 module.exports = router;
