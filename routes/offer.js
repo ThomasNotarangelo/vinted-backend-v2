@@ -19,8 +19,8 @@ router.post(
       const { title, description, price, condition, city, brand, size, color } =
         req.body;
       // console.log(title, description, price, condition, city, brand, size, color);
-      const picture = req.files.picture;
-      // console.log(picture);
+      // console.log(req.files.picture);
+
       if (
         (title && title.length > 50) ||
         (description && description.length > 500)
@@ -32,7 +32,7 @@ router.post(
       if (price > 10000) {
         return res.status(400).json({ message: "Price is too high" });
       }
-      if (!title || !description || !picture) {
+      if (!title || !description || !req.files.picture) {
         return res.status(400).json({ message: "Missing parameters" });
       }
 
@@ -50,17 +50,42 @@ router.post(
         // product_image: result, Ne pas mettre cette clé
         owner: req.user,
       });
-      if (req.files) {
+      if (!Array.isArray(req.files.picture)) {
         const result = await cloudinary.uploader.upload(
-          convertToBase64(picture),
+          convertToBase64(req.files.picture),
           {
             folder: `/vinted-v2/offers/${newOffer._id}`,
           }
         );
         newOffer.product_image = result;
+        newOffer.product_pictures.push(result);
+      } else {
+        for (let i = 0; i < req.files.picture.length; i++) {
+          const picture = req.files.picture[i];
+          // console.log(picture);
+          if (i === 0) {
+            const result = await cloudinary.uploader.upload(
+              convertToBase64(picture),
+              {
+                folder: `/vinted-v2/offers/${newOffer._id}`,
+              }
+            );
+            newOffer.product_image = result;
+            newOffer.product_pictures.push(result);
+          } else {
+            const result = await cloudinary.uploader.upload(
+              convertToBase64(picture),
+              {
+                folder: `/vinted-v2/offers/${newOffer._id}`,
+              }
+            );
+            newOffer.product_pictures.push(result);
+          }
+        }
       }
+      // console.log(newOffer);  // OK
 
-      // console.log(newOffer);
+      console.log(newOffer);
       await newOffer.save();
 
       res.status(201).json(newOffer);
@@ -121,7 +146,7 @@ router.put("/offer/update", isAuthenticated, fileUpload(), async (req, res) => {
     if (city) {
       offerToUpdate.product_details[4].EMPLACEMENT = city;
     }
-    if (req.files && req.files.picture) {
+    if (req.files?.picture) {
       const picture = req.files.picture;
       if (picture) {
         const result = await cloudinary.uploader.upload(
@@ -158,10 +183,7 @@ router.delete(
       }
       // console.log(offer); // OK
       // console.log(offer.product_image.public_id); // OK
-      const publicId = offer.product_image.public_id;
-      // console.log(publicId); // OK
-      const imageToDelete = await cloudinary.uploader.destroy(publicId);
-      console.log(imageToDelete);
+      await cloudinary.api.delete_resources_by_prefix(`vinted-v2/offers/${id}`);
       const folderPath = `vinted-v2/offers/${id}`;
       // console.log(folderPath);
       const folderToDelete = await cloudinary.api.delete_folder(folderPath);
