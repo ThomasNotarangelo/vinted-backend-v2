@@ -7,20 +7,14 @@ const convertToBase64 = require("../utils/convertToBase64");
 const isAuthenticated = require("../middlewares/isAuthenticated");
 const Offer = require("../models/Offer");
 
-// console.log(convertToBase64(req.files.picture));
-
 router.post(
   "/offer/publish",
   isAuthenticated,
   fileUpload(),
   async (req, res) => {
     try {
-      // console.log(req.user);
       const { title, description, price, condition, city, brand, size, color } =
         req.body;
-      // console.log(title, description, price, condition, city, brand, size, color);
-      // console.log(req.files.picture);
-
       if (
         (title && title.length > 50) ||
         (description && description.length > 500)
@@ -50,6 +44,7 @@ router.post(
         // product_image: result, Ne pas mettre cette clé
         owner: req.user,
       });
+      // Si on ne reçoit qu'une image : req.files.picture n'est pas un tableau
       if (!Array.isArray(req.files.picture)) {
         const result = await cloudinary.uploader.upload(
           convertToBase64(req.files.picture),
@@ -57,12 +52,15 @@ router.post(
             folder: `/vinted-v2/offers/${newOffer._id}`,
           }
         );
+        // Ajout de l'image dans newOffer
         newOffer.product_image = result;
+        // Ajout de l'image à la clé product_pictures
         newOffer.product_pictures.push(result);
       } else {
         for (let i = 0; i < req.files.picture.length; i++) {
           const picture = req.files.picture[i];
-          // console.log(picture);
+
+          // Si je suis sur la première image du tableau
           if (i === 0) {
             const result = await cloudinary.uploader.upload(
               convertToBase64(picture),
@@ -70,9 +68,12 @@ router.post(
                 folder: `/vinted-v2/offers/${newOffer._id}`,
               }
             );
+            // Ajout de l'image dans newOffer
             newOffer.product_image = result;
+            // Ajout de l'image à la clé product_pictures
             newOffer.product_pictures.push(result);
           } else {
+            // Si il s'agit des images suivantes je les ajoutes
             const result = await cloudinary.uploader.upload(
               convertToBase64(picture),
               {
@@ -83,11 +84,7 @@ router.post(
           }
         }
       }
-      // console.log(newOffer);  // OK
-
-      console.log(newOffer);
       await newOffer.save();
-
       res.status(201).json(newOffer);
     } catch (error) {
       res.status(500).json({ message: error.message });
@@ -97,8 +94,6 @@ router.post(
 
 router.put("/offer/update", isAuthenticated, fileUpload(), async (req, res) => {
   try {
-    // console.log("route: /offer/update"); // OK
-
     const {
       id,
       title,
@@ -109,12 +104,11 @@ router.put("/offer/update", isAuthenticated, fileUpload(), async (req, res) => {
       brand,
       size,
       color,
+      pictureToDelete,
     } = req.body;
-    console.log(req.body); // OK
 
     const offerToUpdate = await Offer.findById(id);
-    // console.log(offerToUpdate); // OK
-    // console.log(title); // OK
+
     if (!offerToUpdate) {
       return res.status(400).json({ message: "Offer not found" });
     }
@@ -133,18 +127,23 @@ router.put("/offer/update", isAuthenticated, fileUpload(), async (req, res) => {
     if (size) {
       offerToUpdate.product_details[1].TAILLE = size;
     }
-    // console.log(offerToUpdate.product_details[0].ETAT); // OK
-    // console.log(condition); //OK
     if (condition) {
       offerToUpdate.product_details[2].ETAT = condition;
     }
-    // console.log(color); // OK
-    // console.log(offerToUpdate.product_details[0].COULEUR); // OK
     if (color) {
       offerToUpdate.product_details[3].COULEUR = color;
     }
     if (city) {
       offerToUpdate.product_details[4].EMPLACEMENT = city;
+    }
+    if (pictureToDelete) {
+      //  Supprimer l'image dans cloudinary en fonction du public_id reçu dans la requête
+      await cloudinary.uploader.destroy(pictureToDelete);
+
+      // Retirer l'image supprimée du tableau product_pictures
+      offerToUpdate.product_pictures = offerToUpdate.product_pictures.filter(
+        (picture) => picture.public_id !== pictureToDelete
+      );
     }
     if (req.files?.picture) {
       const picture = req.files.picture;
@@ -155,14 +154,14 @@ router.put("/offer/update", isAuthenticated, fileUpload(), async (req, res) => {
             folder: `/vinted-v2/offers/${offerToUpdate._id}`,
           }
         );
-        offerToUpdate.product_image = result;
+        // Ajouter la nouvelle image au tableau product_pictures
+        offerToUpdate.product_pictures.push(result);
       }
     }
-
+    // Pour empêcher le bug de save() causé par la modification d'un élément qui n'est pas explicitement prévu dans le modèle newOffer
     offerToUpdate.markModified("product_details");
     await offerToUpdate.save();
     res.status(200).json(offerToUpdate);
-    // console.log(offerToUpdate); // OK
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -174,15 +173,11 @@ router.delete(
   fileUpload(),
   async (req, res) => {
     try {
-      // console.log(req.params.id); // OK
       const id = req.params.id;
-      // console.log(id); // OK
       const offer = await Offer.findById(id);
       if (!offer) {
         return res.status(400).json({ message: "Offer not found" });
       }
-      // console.log(offer); // OK
-      // console.log(offer.product_image.public_id); // OK
       await cloudinary.api.delete_resources_by_prefix(`vinted-v2/offers/${id}`);
       const folderPath = `vinted-v2/offers/${id}`;
       // console.log(folderPath);
@@ -201,11 +196,9 @@ router.get("/offers", async (req, res) => {
     const filters = {};
     const sortElements = {};
     const { title, priceMin, priceMax, sort } = req.query;
-    // console.log(title); // OK
     if (title) {
       filters.product_name = new RegExp(title, "i");
     }
-    // console.log(filters.product_name); // OK
     if (priceMin) {
       filters.product_price = {
         $gte: priceMin,
@@ -220,15 +213,11 @@ router.get("/offers", async (req, res) => {
         };
       }
     }
-    // console.log(filters.product_price); // OK
-
-    // console.log(sort); // OK
     if (sort === "price-desc") {
       sortElements.product_price = "desc";
     } else if (sort === "price-asc") {
       sortElements.product_price = "asc";
     }
-
     let limit = 5;
     if (req.query.limit) {
       limit = req.query.limit;
@@ -244,7 +233,7 @@ router.get("/offers", async (req, res) => {
       .sort(sortElements)
       .skip(skip)
       .limit(limit);
-    // .select("product_name product_price");
+    // .select("product_name product_price");  // Pour n'afficher que product_name et product_price lors de mes test postman
     res.status(200).json({ count: numberOfOffers, offers: result });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -254,9 +243,7 @@ router.get("/offers", async (req, res) => {
 router.get("/offer/:id", async (req, res) => {
   try {
     const id = req.params.id;
-    // console.log(id); // OK
     const offer = await Offer.findById(id).populate("owner", "account");
-    // console.log(offer); // OK
     res.status(200).json(offer);
   } catch (error) {
     res.status(500).json({ message: error.message });

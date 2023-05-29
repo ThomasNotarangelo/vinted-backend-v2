@@ -13,40 +13,38 @@ router.post("/user/signup", fileUpload(), async (req, res) => {
   try {
     let avatar = null;
 
-    if (req.files && req.files.picture) {
+    if (req.files?.picture) {
       const picture = req.files.picture;
-      // console.log(picture);
       avatar = await cloudinary.uploader.upload(convertToBase64(picture), {
         folder: "/vinted-v2/users-avatars",
       });
     }
-    // console.log(avatar);
     const { username, email, password, newsletter } = req.body;
-    // console.log(username, email, password, newsletter);
     const salt = uid2(16);
     const hash = SHA256(password + salt).toString(encBase64);
     const token = uid2(16);
     const userEmail = await User.findOne({ email: email });
-    // console.log(userEmail);
     if (!userEmail) {
       if (username) {
         const newUser = new User({
           email,
-          account: { username, avatar: avatar },
+          account: { username },
           password,
           newsletter,
           token,
           hash,
           salt,
         });
-        // console.log(newUser);
+
+        if (avatar) {
+          newUser.account.avatar = avatar;
+        }
         await newUser.save();
         const response = {
           _id: newUser._id,
           token: newUser.token,
           account: newUser.account,
         };
-        // console.log(response);
         res.status(200).json(response);
       } else {
         res.status(400).json({ message: "Username missing" });
@@ -62,23 +60,17 @@ router.post("/user/signup", fileUpload(), async (req, res) => {
 router.post("/user/login", async (req, res) => {
   try {
     const { email, password } = req.body;
-    // console.log(email, password);
     const user = await User.findOne({ email: email });
-    // console.log(user);
+
     if (user) {
       const salt = user.salt;
-      // console.log(salt);
       const hash = user.hash;
-      // console.log(hash);
       const newHash = SHA256(password + salt).toString(encBase64);
-      // console.log(newHash);
       const response = {
         id: user._id,
         token: user.token,
         account: user.account,
       };
-      // console.log(response);
-
       if (newHash === hash) {
         res.status(200).json(response);
       } else {
