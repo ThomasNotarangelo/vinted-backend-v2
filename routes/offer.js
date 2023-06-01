@@ -218,7 +218,7 @@ router.get("/offers", async (req, res) => {
     } else if (sort === "price-asc") {
       sortElements.product_price = "asc";
     }
-    let limit = 5;
+    let limit = 10;
     if (req.query.limit) {
       limit = req.query.limit;
     }
