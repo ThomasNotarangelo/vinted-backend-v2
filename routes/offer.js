@@ -6,6 +6,7 @@ const cloudinary = require("cloudinary").v2;
 const convertToBase64 = require("../utils/convertToBase64");
 const isAuthenticated = require("../middlewares/isAuthenticated");
 const Offer = require("../models/Offer");
+const User = require("../models/User");
 
 router.post(
   "/offer/publish",
@@ -230,6 +231,7 @@ router.get("/offers", async (req, res) => {
 
     const numberOfOffers = await Offer.countDocuments();
     const result = await Offer.find(filters)
+      .populate({ path: "owner", select: "account" })
       .sort(sortElements)
       .skip(skip)
       .limit(limit);

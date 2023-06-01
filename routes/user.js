@@ -7,6 +7,7 @@ const cloudinary = require("cloudinary").v2;
 const fileUpload = require("express-fileupload");
 
 const User = require("../models/User");
+const Offer = require("../models/Offer");
 const convertToBase64 = require("../utils/convertToBase64");
 
 router.post("/user/signup", fileUpload(), async (req, res) => {
